@@ -15,7 +15,6 @@ x64/
 **/x64/
 
 # Project files
-*.sln
 *.vcxproj
 **/*.vcxproj
 
