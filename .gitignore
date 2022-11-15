@@ -9,8 +9,6 @@
 
 # folders
 .vs/
-Debug/
-**/Debug/
 x64/
 **/x64/
 
