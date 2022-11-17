@@ -20,7 +20,7 @@
 IDirect3DDevice9* Device = NULL;
 
 // window size
-const int Width  = 1024;
+const int Width = 1024;
 const int Height = 768;
 
 // There are four balls
@@ -99,16 +99,74 @@ public:
 		m_pSphereMesh->DrawSubset(0);
     }
 	
-    bool hasIntersected(CSphere& ball) 
+	bool hasIntersected(CSphere& ball) // 공 충돌 판정
 	{
-		// Insert your code here.
+		D3DXVECTOR3 b1 = this->getCenter();
+		D3DXVECTOR3 b2 = ball.getCenter();
 
-		return false;
+		double distance = sqrt(pow((b1.x - b2.x), 2) + pow((b1.y - b2.y), 2) + pow((b1.z - b2.z), 2)); // d = 공의 중심 좌표를 통해 구한 두 공 사이의 거리
+		double rSum = this->getRadius() + ball.getRadius(); // r = 두 공의 반지름의 합
+
+		if (distance <= rSum) { // distance <= rSum 이면 두 공은 충돌한 것이다
+			return true;
+		}
+		else {
+			return false;
+		}
+
 	}
 	
-	void hitBy(CSphere& ball) 
+	void hitBy(CSphere& ball) // 공 충돌 처리
 	{ 
-		// Insert your code here.
+		// declare variable, for performance I set them as static
+		static D3DXVECTOR3 direction;
+		static D3DXVECTOR3 warpVector;
+		static D3DXVECTOR3 totalVelocity;
+		static D3DXVECTOR3 normalizedDirection;
+		static D3DXVECTOR3 ballVelocity;
+		static D3DXVECTOR3 thisVelocity;
+		static const float fix = 1.1f; // for correction of should-be-warp(겹쳐지지 않게 옮겨져야 되는) distance //should be larger then one //1보다 커야함
+		static float distance;
+		static float overlapInterval;
+
+		// when collided, do physics
+		if (hasIntersected(ball)) {
+			// set direction
+			direction = this->getCenter() - ball.getCenter();
+			// compute distance // 2 차원이라고 가정
+			distance = sqrt(direction.x * direction.x + direction.z * direction.z);
+			// overlap distance
+			overlapInterval = 2 * ball.getRadius() - distance;
+			// how much should I warp so that circles(colliders) won't overlapped anymore
+			warpVector = fix * direction * (overlapInterval / (2 * ball.getRadius() - overlapInterval));
+
+			// implementation of collision // 탄성 충돌 구현 
+			if (((ball.m_velocity_x * ball.m_velocity_x) + (ball.m_velocity_z * ball.m_velocity_z)) >= ((this->m_velocity_x * this->m_velocity_x) + (this->m_velocity_z * this->m_velocity_z))) {
+				// hitter의 속도가 큰 경우 반대로 호출 // 왜냐면 아래의 물리식은 hitee의 기준으로 만들었기 때문
+				ball.hitBy(*this);
+				return;
+			}
+			else {
+				// hitter의 속도가 작은 경우
+				// 충돌할 때, 워프시켜서 한번만 아래의 물리연산이 실행되도록 하기 
+				// this에 +warpVector 적용
+				this->setCenter(this->getCenter().x + warpVector.x, this->getCenter().y, this->getCenter().z + warpVector.z);
+			}
+
+			// Add all velocity of colliding Balls
+			totalVelocity = D3DXVECTOR3(getVelocity_X() + ball.getVelocity_X(), 0, getVelocity_Z() + ball.getVelocity_Z());
+			// normalize direction vector
+			normalizedDirection = (-1) * direction / distance;
+
+			// compute final velocity of each colliders
+			ballVelocity = normalizedDirection * (normalizedDirection.x * totalVelocity.x + normalizedDirection.z * totalVelocity.z);
+			thisVelocity = -ballVelocity + totalVelocity;
+
+			// set Power // 탄성 충돌 물리식 결과 적용
+			this->setPower(thisVelocity.x, thisVelocity.z);
+			ball.setPower(ballVelocity.x, ballVelocity.z);
+
+		}
 	}
 
 	void ballUpdate(float timeDiff) 
@@ -241,13 +299,64 @@ public:
 	
 	bool hasIntersected(CSphere& ball) 
 	{
-		// Insert your code here.
-		return false;
+		float ballpos_x = ball.getCenter().x;
+		float ballpos_z = ball.getCenter().z;
+
+		// for better collision detection // 벽을 좀 작게해서 보정
+		float correction = 0.08f;
+
+		// compare position with wall and ball position
+		if ((ballpos_x >= ((4.5 - correction) - M_RADIUS))
+			|| (ballpos_x <= ((-1) * (4.5 - correction) + M_RADIUS))
+			|| (ballpos_z <= ((-1) * (3.0 - correction) + M_RADIUS))
+			|| (ballpos_z >= (3.0 - correction - M_RADIUS)))
+		{
+			return true;
+		}
+		else {
+			return false;
+		}
 	}
 
 	void hitBy(CSphere& ball) 
 	{
-		// Insert your code here.
+		// when collided, do physics
+		if (hasIntersected(ball)) {
+			static const float energyComsumption = 0.2f;
+			// Collide with Upper Wall // 상위의 벽과 충돌
+			if (ball.getCenter().z >= (3.0 - M_RADIUS)) {
+				ball.setCenter(ball.getCenter().x, ball.getCenter().y, 3 - M_RADIUS);
+				ball.setPower(ball.getVelocity_X(), (-1) * ball.getVelocity_Z());
+
+				// decrease velocity of ball after collision of wall
+				ball.setPower(ball.getVelocity_X() * (1.0f - energyComsumption), ball.getVelocity_Z() * (1.0f - energyComsumption));
+			}
+			// Collide with Lower Wall // 하위의 벽과 충돌
+			if (ball.getCenter().z <= (-(3.0) + M_RADIUS)) {
+				ball.setCenter(ball.getCenter().x, ball.getCenter().y, -3 + M_RADIUS);
+				ball.setPower(ball.getVelocity_X(), (-1) * ball.getVelocity_Z());
+
+				// decrease velocity of ball after collision of wall
+				ball.setPower(ball.getVelocity_X() * (1.0f - energyComsumption), ball.getVelocity_Z() * (1.0f - energyComsumption));
+			}
+			// Collide with Left Wall // 좌측의 벽과 충돌
+			if (ball.getCenter().x <= (-(4.5) + M_RADIUS))
+			{
+				ball.setCenter(-4.5 + M_RADIUS, ball.getCenter().y, ball.getCenter().z);
+				ball.setPower((-1) * ball.getVelocity_X(), ball.getVelocity_Z());
+
+				// decrease velocity of ball after collision of wall
+				ball.setPower(ball.getVelocity_X() * (1.0f - energyComsumption), ball.getVelocity_Z() * (1.0f - energyComsumption));
+			}
+			// Collide with Right Wall // 우측의 벽과 충돌
+			if (ball.getCenter().x >= (4.5 - M_RADIUS)) {
+				ball.setCenter(4.5 - M_RADIUS, ball.getCenter().y, ball.getCenter().z);
+				ball.setPower((-1) * ball.getVelocity_X(), ball.getVelocity_Z());
+
+				// decrease velocity of ball after collision of wall
+				ball.setPower(ball.getVelocity_X() * (1.0f - energyComsumption), ball.getVelocity_Z() * (1.0f - energyComsumption));
+			}
+		}
 	}    
 	
 	void setPosition(float x, float y, float z)
