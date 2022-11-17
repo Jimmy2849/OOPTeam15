@@ -2,7 +2,7 @@
 // 
 // File: virtualLego.cpp
 //
-// Original Author: π⁄√¢«ˆ Chang-hyeon Park, 
+// Original Author: Î∞ïÏ∞ΩÌòÑ Chang-hyeon Park, 
 // Modified by Bong-Soo Sohn and Dong-Jun Kim
 // 
 // Originally programmed for Virtual LEGO. 
@@ -99,15 +99,15 @@ public:
 		m_pSphereMesh->DrawSubset(0);
     }
 	
-	bool hasIntersected(CSphere& ball) // ∞¯ √Êµπ ∆«¡§
+	bool hasIntersected(CSphere& ball) // Í≥µ Ï∂©Îèå ÌåêÏ†ï
 	{
 		D3DXVECTOR3 b1 = this->getCenter();
 		D3DXVECTOR3 b2 = ball.getCenter();
 
-		double distance = sqrt(pow((b1.x - b2.x), 2) + pow((b1.y - b2.y), 2) + pow((b1.z - b2.z), 2)); // d = ∞¯¿« ¡ﬂΩ… ¡¬«•∏¶ ≈Î«ÿ ±∏«— µŒ ∞¯ ªÁ¿Ã¿« ∞≈∏Æ
-		double rSum = this->getRadius() + ball.getRadius(); // r = µŒ ∞¯¿« π›¡ˆ∏ß¿« «’
+		double distance = sqrt(pow((b1.x - b2.x), 2) + pow((b1.y - b2.y), 2) + pow((b1.z - b2.z), 2)); // d = Í≥µÏùò Ï§ëÏã¨ Ï¢åÌëúÎ•º ÌÜµÌï¥ Íµ¨Ìïú Îëê Í≥µ ÏÇ¨Ïù¥Ïùò Í±∞Î¶¨
+		double rSum = this->getRadius() + ball.getRadius(); // r = Îëê Í≥µÏùò Î∞òÏßÄÎ¶ÑÏùò Ìï©
 
-		if (distance <= rSum) { // distance <= rSum ¿Ã∏È µŒ ∞¯¿∫ √Êµπ«— ∞Õ¿Ã¥Ÿ
+		if (distance <= rSum) { // distance <= rSum Ïù¥Î©¥ Îëê Í≥µÏùÄ Ï∂©ÎèåÌïú Í≤ÉÏù¥Îã§
 			return true;
 		}
 		else {
@@ -116,7 +116,7 @@ public:
 
 	}
 	
-	void hitBy(CSphere& ball) // ∞¯ √Êµπ √≥∏Æ
+	void hitBy(CSphere& ball) // Í≥µ Ï∂©Îèå Ï≤òÎ¶¨
 	{ 
 		// declare variable, for performance I set them as static
 		static D3DXVECTOR3 direction;
@@ -125,7 +125,7 @@ public:
 		static D3DXVECTOR3 normalizedDirection;
 		static D3DXVECTOR3 ballVelocity;
 		static D3DXVECTOR3 thisVelocity;
-		static const float fix = 1.1f; // for correction of should-be-warp(∞„√ƒ¡ˆ¡ˆ æ ∞‘ ø≈∞‹¡Ææﬂ µ«¥¬) distance //should be larger then one //1∫∏¥Ÿ ƒøæﬂ«‘
+		static const float fix = 1.1f; // for correction of should-be-warp(Í≤πÏ≥êÏßÄÏßÄ ÏïäÍ≤å ÏòÆÍ≤®Ï†∏Ïïº ÎêòÎäî) distance //should be larger then one //1Î≥¥Îã§ Ïª§ÏïºÌï®
 		static float distance;
 		static float overlapInterval;
 
@@ -133,23 +133,23 @@ public:
 		if (hasIntersected(ball)) {
 			// set direction
 			direction = this->getCenter() - ball.getCenter();
-			// compute distance // 2 ¬˜ø¯¿Ã∂Û∞Ì ∞°¡§
+			// compute distance // 2 Ï∞®ÏõêÏù¥ÎùºÍ≥† Í∞ÄÏ†ï
 			distance = sqrt(direction.x * direction.x + direction.z * direction.z);
 			// overlap distance
 			overlapInterval = 2 * ball.getRadius() - distance;
 			// how much should I warp so that circles(colliders) won't overlapped anymore
 			warpVector = fix * direction * (overlapInterval / (2 * ball.getRadius() - overlapInterval));
 
-			// implementation of collision // ≈∫º∫ √Êµπ ±∏«ˆ 
+			// implementation of collision // ÌÉÑÏÑ± Ï∂©Îèå Íµ¨ÌòÑ 
 			if (((ball.m_velocity_x * ball.m_velocity_x) + (ball.m_velocity_z * ball.m_velocity_z)) >= ((this->m_velocity_x * this->m_velocity_x) + (this->m_velocity_z * this->m_velocity_z))) {
-				// hitter¿« º”µµ∞° ≈´ ∞ÊøÏ π›¥Î∑Œ »£√‚ // ø÷≥ƒ∏È æ∆∑°¿« π∞∏ÆΩƒ¿∫ hitee¿« ±‚¡ÿ¿∏∑Œ ∏∏µÈæ˙±‚ ∂ßπÆ
+				// hitterÏùò ÏÜçÎèÑÍ∞Ä ÌÅ∞ Í≤ΩÏö∞ Î∞òÎåÄÎ°ú Ìò∏Ï∂ú // ÏôúÎÉêÎ©¥ ÏïÑÎûòÏùò Î¨ºÎ¶¨ÏãùÏùÄ hiteeÏùò Í∏∞Ï§ÄÏúºÎ°ú ÎßåÎì§ÏóàÍ∏∞ ÎïåÎ¨∏
 				ball.hitBy(*this);
 				return;
 			}
 			else {
-				// hitter¿« º”µµ∞° ¿€¿∫ ∞ÊøÏ
-				// √Êµπ«“ ∂ß, øˆ«¡Ω√ƒ—º≠ «—π¯∏∏ æ∆∑°¿« π∞∏Æø¨ªÍ¿Ã Ω««‡µ«µµ∑œ «œ±‚ 
-				// thisø° +warpVector ¿˚øÎ
+				// hitterÏùò ÏÜçÎèÑÍ∞Ä ÏûëÏùÄ Í≤ΩÏö∞
+				// Ï∂©ÎèåÌï† Îïå, ÏõåÌîÑÏãúÏºúÏÑú ÌïúÎ≤àÎßå ÏïÑÎûòÏùò Î¨ºÎ¶¨Ïó∞ÏÇ∞Ïù¥ Ïã§ÌñâÎêòÎèÑÎ°ù ÌïòÍ∏∞ 
+				// thisÏóê +warpVector Ï†ÅÏö©
 				this->setCenter(this->getCenter().x + warpVector.x, this->getCenter().y, this->getCenter().z + warpVector.z);
 			}
 
@@ -162,7 +162,7 @@ public:
 			ballVelocity = normalizedDirection * (normalizedDirection.x * totalVelocity.x + normalizedDirection.z * totalVelocity.z);
 			thisVelocity = -ballVelocity + totalVelocity;
 
-			// set Power // ≈∫º∫ √Êµπ π∞∏ÆΩƒ ∞·∞˙ ¿˚øÎ
+			// set Power // ÌÉÑÏÑ± Ï∂©Îèå Î¨ºÎ¶¨Ïãù Í≤∞Í≥º Ï†ÅÏö©
 			this->setPower(thisVelocity.x, thisVelocity.z);
 			ball.setPower(ballVelocity.x, ballVelocity.z);
 
@@ -302,7 +302,7 @@ public:
 		float ballpos_x = ball.getCenter().x;
 		float ballpos_z = ball.getCenter().z;
 
-		// for better collision detection // ∫Æ¿ª ¡ª ¿€∞‘«ÿº≠ ∫∏¡§
+		// for better collision detection // Î≤ΩÏùÑ Ï¢Ä ÏûëÍ≤åÌï¥ÏÑú Î≥¥Ï†ï
 		float correction = 0.08f;
 
 		// compare position with wall and ball position
@@ -323,7 +323,7 @@ public:
 		// when collided, do physics
 		if (hasIntersected(ball)) {
 			static const float energyComsumption = 0.2f;
-			// Collide with Upper Wall // ªÛ¿ß¿« ∫Æ∞˙ √Êµπ
+			// Collide with Upper Wall // ÏÉÅÏúÑÏùò Î≤ΩÍ≥º Ï∂©Îèå
 			if (ball.getCenter().z >= (3.0 - M_RADIUS)) {
 				ball.setCenter(ball.getCenter().x, ball.getCenter().y, 3 - M_RADIUS);
 				ball.setPower(ball.getVelocity_X(), (-1) * ball.getVelocity_Z());
@@ -331,7 +331,7 @@ public:
 				// decrease velocity of ball after collision of wall
 				ball.setPower(ball.getVelocity_X() * (1.0f - energyComsumption), ball.getVelocity_Z() * (1.0f - energyComsumption));
 			}
-			// Collide with Lower Wall // «œ¿ß¿« ∫Æ∞˙ √Êµπ
+			// Collide with Lower Wall // ÌïòÏúÑÏùò Î≤ΩÍ≥º Ï∂©Îèå
 			if (ball.getCenter().z <= (-(3.0) + M_RADIUS)) {
 				ball.setCenter(ball.getCenter().x, ball.getCenter().y, -3 + M_RADIUS);
 				ball.setPower(ball.getVelocity_X(), (-1) * ball.getVelocity_Z());
@@ -339,7 +339,7 @@ public:
 				// decrease velocity of ball after collision of wall
 				ball.setPower(ball.getVelocity_X() * (1.0f - energyComsumption), ball.getVelocity_Z() * (1.0f - energyComsumption));
 			}
-			// Collide with Left Wall // ¡¬√¯¿« ∫Æ∞˙ √Êµπ
+			// Collide with Left Wall // Ï¢åÏ∏°Ïùò Î≤ΩÍ≥º Ï∂©Îèå
 			if (ball.getCenter().x <= (-(4.5) + M_RADIUS))
 			{
 				ball.setCenter(-4.5 + M_RADIUS, ball.getCenter().y, ball.getCenter().z);
@@ -348,7 +348,7 @@ public:
 				// decrease velocity of ball after collision of wall
 				ball.setPower(ball.getVelocity_X() * (1.0f - energyComsumption), ball.getVelocity_Z() * (1.0f - energyComsumption));
 			}
-			// Collide with Right Wall // øÏ√¯¿« ∫Æ∞˙ √Êµπ
+			// Collide with Right Wall // Ïö∞Ï∏°Ïùò Î≤ΩÍ≥º Ï∂©Îèå
 			if (ball.getCenter().x >= (4.5 - M_RADIUS)) {
 				ball.setCenter(4.5 - M_RADIUS, ball.getCenter().y, ball.getCenter().z);
 				ball.setPower((-1) * ball.getVelocity_X(), ball.getVelocity_Z());
@@ -498,18 +498,19 @@ bool Setup()
     D3DXMatrixIdentity(&g_mProj);
 		
 	// create plane and set the position
-    if (false == g_legoPlane.create(Device, -1, -1, 9, 0.03f, 6, d3d::GREEN)) return false;
-    g_legoPlane.setPosition(0.0f, -0.0006f / 5, 0.0f);
+	if (false == g_legoPlane.create(Device, -1, -1, 6, 0.03f, 9, d3d::GREEN)) return false;
+	g_legoPlane.setPosition(0.0f, -0.0006f / 5, 0.0f);
+
 	
 	// create walls and set the position. note that there are four walls
-	if (false == g_legowall[0].create(Device, -1, -1, 9, 0.3f, 0.12f, d3d::DARKRED)) return false;
-	g_legowall[0].setPosition(0.0f, 0.12f, 3.06f);
-	if (false == g_legowall[1].create(Device, -1, -1, 9, 0.3f, 0.12f, d3d::DARKRED)) return false;
-	g_legowall[1].setPosition(0.0f, 0.12f, -3.06f);
-	if (false == g_legowall[2].create(Device, -1, -1, 0.12f, 0.3f, 6.24f, d3d::DARKRED)) return false;
-	g_legowall[2].setPosition(4.56f, 0.12f, 0.0f);
-	if (false == g_legowall[3].create(Device, -1, -1, 0.12f, 0.3f, 6.24f, d3d::DARKRED)) return false;
-	g_legowall[3].setPosition(-4.56f, 0.12f, 0.0f);
+	if (false == g_legowall[0].create(Device, -1, -1, 6, 0.3f, 0.12f, d3d::DARKRED)) return false;
+	g_legowall[0].setPosition(0.0f, 0.12f, 4.56f);
+	if (false == g_legowall[1].create(Device, -1, -1, 6, 0.3f, 0.12f, d3d::DARKRED)) return false;
+	g_legowall[1].setPosition(0.0f, 0.12f, -4.56f);
+	if (false == g_legowall[2].create(Device, -1, -1, 0.12f, 0.3f, 9.24f, d3d::DARKRED)) return false;
+	g_legowall[2].setPosition(3.06f, 0.12f, 0.0f);
+	if (false == g_legowall[3].create(Device, -1, -1, 0.12f, 0.3f, 9.24f, d3d::DARKRED)) return false;
+	g_legowall[3].setPosition(-3.06f, 0.12f, 0.0f);
 
 	// create four balls and set the position
 	for (i=0;i<4;i++) {
@@ -538,8 +539,8 @@ bool Setup()
         return false;
 	
 	// Position and aim the camera.
-	D3DXVECTOR3 pos(0.0f, 5.0f, -8.0f);
-	D3DXVECTOR3 target(0.0f, 0.0f, 0.0f);
+	D3DXVECTOR3 pos(0.0f, 15.0f, -1.0f); // ÏãúÏûë Ïπ¥Î©îÎùº ÏúÑÏπò 
+	D3DXVECTOR3 target(0.0f, 0.0f, 0.0f); // Ïπ¥Î©îÎùº ÎπÑÏ∂îÎäî Í≥≥
 	D3DXVECTOR3 up(0.0f, 2.0f, 0.0f);
 	D3DXMatrixLookAtLH(&g_mView, &pos, &target, &up);
 	Device->SetTransform(D3DTS_VIEW, &g_mView);
@@ -644,10 +645,10 @@ LRESULT CALLBACK d3d::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				D3DXVECTOR3 targetpos = g_target_blueball.getCenter();
 				D3DXVECTOR3	whitepos = g_sphere[3].getCenter();
 				double theta = acos(sqrt(pow(targetpos.x - whitepos.x, 2)) / sqrt(pow(targetpos.x - whitepos.x, 2) +
-					pow(targetpos.z - whitepos.z, 2)));		// ±‚∫ª 1 ªÁ∫–∏È
-				if (targetpos.z - whitepos.z <= 0 && targetpos.x - whitepos.x >= 0) { theta = -theta; }	//4 ªÁ∫–∏È
-				if (targetpos.z - whitepos.z >= 0 && targetpos.x - whitepos.x <= 0) { theta = PI - theta; } //2 ªÁ∫–∏È
-				if (targetpos.z - whitepos.z <= 0 && targetpos.x - whitepos.x <= 0){ theta = PI + theta; } // 3 ªÁ∫–∏È
+					pow(targetpos.z - whitepos.z, 2)));		// Í∏∞Î≥∏ 1 ÏÇ¨Î∂ÑÎ©¥
+				if (targetpos.z - whitepos.z <= 0 && targetpos.x - whitepos.x >= 0) { theta = -theta; }	//4 ÏÇ¨Î∂ÑÎ©¥
+				if (targetpos.z - whitepos.z >= 0 && targetpos.x - whitepos.x <= 0) { theta = PI - theta; } //2 ÏÇ¨Î∂ÑÎ©¥
+				if (targetpos.z - whitepos.z <= 0 && targetpos.x - whitepos.x <= 0){ theta = PI + theta; } // 3 ÏÇ¨Î∂ÑÎ©¥
 				double distance = sqrt(pow(targetpos.x - whitepos.x, 2) + pow(targetpos.z - whitepos.z, 2));
 				g_sphere[3].setPower(distance * cos(theta), distance * sin(theta));
 
