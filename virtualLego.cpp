@@ -51,6 +51,7 @@ private :
     float                   m_radius;
 	float					m_velocity_x;
 	float					m_velocity_z;
+	int						score;
 
 public:
     CSphere(void)
@@ -98,7 +99,20 @@ public:
         pDevice->SetMaterial(&m_mtrl);
 		m_pSphereMesh->DrawSubset(0);
     }
-	
+	/*int score(void) // 공 점수 계산
+{
+}
+*/
+
+	bool isStop(void) // 공 멈춤 판정
+	{
+		if (this->m_velocity_x == 0 && this->m_velocity_z == 0) {
+			return true;
+		}
+		else {
+			return false;
+		}
+	}
 	bool hasIntersected(CSphere& ball) // 공 충돌 판정
 	{
 		D3DXVECTOR3 b1 = this->getCenter();
@@ -477,6 +491,9 @@ CSphere	g_sphere[4];
 CSphere	g_target_blueball;
 CLight	g_light;
 
+int whiteRound = 1; // 라운드 수
+int whiteScore = 0; // 총 점수
+
 double g_camera_pos[3] = {0.0, 5.0, -8.0};
 
 // -----------------------------------------------------------------------------
@@ -642,16 +659,28 @@ LRESULT CALLBACK d3d::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 break;
             case VK_SPACE:
 				
+				int i;
+				// 공이 멈출 때까지 기다림
+				if (whiteRound > 1) {
+					for (i = 0; i < 4; i++) {
+						if (!g_sphere[i].isStop()) goto HERE;
+					}
+				}
+
 				D3DXVECTOR3 targetpos = g_target_blueball.getCenter();
-				D3DXVECTOR3	whitepos = g_sphere[3].getCenter();
+				D3DXVECTOR3	whitepos = g_sphere[whiteRound - 1].getCenter();
+
 				double theta = acos(sqrt(pow(targetpos.x - whitepos.x, 2)) / sqrt(pow(targetpos.x - whitepos.x, 2) +
 					pow(targetpos.z - whitepos.z, 2)));		// 기본 1 사분면
 				if (targetpos.z - whitepos.z <= 0 && targetpos.x - whitepos.x >= 0) { theta = -theta; }	//4 사분면
 				if (targetpos.z - whitepos.z >= 0 && targetpos.x - whitepos.x <= 0) { theta = PI - theta; } //2 사분면
-				if (targetpos.z - whitepos.z <= 0 && targetpos.x - whitepos.x <= 0){ theta = PI + theta; } // 3 사분면
+				if (targetpos.z - whitepos.z <= 0 && targetpos.x - whitepos.x <= 0) { theta = PI + theta; } // 3 사분면
 				double distance = sqrt(pow(targetpos.x - whitepos.x, 2) + pow(targetpos.z - whitepos.z, 2));
-				g_sphere[3].setPower(distance * cos(theta), distance * sin(theta));
+				g_sphere[whiteRound - 1].setPower(distance * cos(theta), distance * sin(theta));
 
+				whiteRound++; // 다음 라운드로 이동
+
+			HERE:
 				break;
 
 			}
