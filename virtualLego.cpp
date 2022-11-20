@@ -56,6 +56,7 @@ D3DXMATRIX g_mProj;
 #define PI 3.14159265
 #define M_HEIGHT 0.01
 #define DECREASE_RATE 0.9982
+#define TIME_LIMIT 10
 
 D3DXVECTOR3 scoreTarget = { 0.0f, (float)M_RADIUS, 0.0f }; // 점수 기준이 되는 기준점 (화면상 하얀 점 보이는 중앙)
 
@@ -705,7 +706,9 @@ CText   g_player2; // 화면 상단 우측에 P2의 현재 세트 점수표시
 CText	g_totalP1; // 화면 상단 좌측에 P1의 총점표시
 CText	g_totalP2; // 화면 상단 우측에 P2의 총점표시
 CText	g_winner; // 모든 세트 끝나면 승자 표시
-
+CText	g_timer; // 시간제한 표시
+float	sec; //초 단위 계산
+float	elapsedTime; // 경과시간 표시
 Curling game; // Curling 객체 전역으로 선언
 
 double g_camera_pos[3] = { 0.0, 5.0, -8.0 };
@@ -726,13 +729,19 @@ bool Setup()
 
 	//setup text
 	if (g_score.create(Device, Width, Height, "SCORE") == false) return false;
-	if (g_player1.create(Device, Width, Height, "Player1") == false) return false;
-	if (g_player2.create(Device, Width - 30, Height, "Player2") == false) return false;
+	if (g_player1.create(Device, Width, Height, "0") == false) return false;
+	if (g_player2.create(Device, Width - 30, Height, "0") == false) return false;
 	if (g_set.create(Device, Width, Height, "SET") == false) return false;
-	if (g_totalP1.create(Device, Width, Height, "p1") == false) return false;
-	if (g_totalP2.create(Device, Width - 30, Height, "p2") == false) return false;
+	if (g_totalP1.create(Device, Width, Height, "Player1 : ") == false) return false;
+	if (g_totalP2.create(Device, Width - 30, Height, "Player2 : ") == false) return false;
 	if (g_winner.create(Device, Width, Height, " ") == false) return false;
+	if (g_timer.create(Device, Width, Height-80, std::to_string(TIME_LIMIT)) == false) return false;
 
+	g_player1.setColor(d3d::RED);
+	g_player2.setColor(d3d::YELLOW);
+	g_totalP1.setColor(d3d::RED);
+	g_totalP2.setColor(d3d::YELLOW);
+	g_timer.setColor(d3d::BLACK);
 	g_player1.setPosition(0, 50);
 	g_player2.setPosition(0, 50);
 	g_set.setPosition(0, 50);
@@ -744,7 +753,8 @@ bool Setup()
 	g_totalP1.setAnchor(DT_TOP | DT_LEFT);
 	g_totalP2.setAnchor(DT_TOP | DT_RIGHT);
 	g_winner.setAnchor(DT_TOP | DT_CENTER);
-
+	g_timer.setAnchor(DT_BOTTOM | DT_CENTER);
+	
 	D3DXMatrixIdentity(&g_mWorld);
 	D3DXMatrixIdentity(&g_mView);
 	D3DXMatrixIdentity(&g_mProj);
@@ -828,6 +838,13 @@ bool Display(float timeDelta)
 	int j = 0;
 	int turn = game.getNowTurn(); // 지금 몇번째 턴인가
 
+	// 사용자 입력이 가능한(== 공이 모두 멈춘) 상태에서만 타이머 작동
+	if (game.isAllStop()) {
+		sec += timeDelta;
+		elapsedTime += timeDelta;
+	}
+	
+
 	if (Device)
 	{
 		Device->Clear(0, 0, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0x00afafaf, 1.0f, 0);
@@ -884,7 +901,19 @@ bool Display(float timeDelta)
 		g_totalP2.draw();
 		g_set.draw();
 		g_winner.draw();
+		g_timer.draw();
 
+		// TIME_LIMIT 초부터 1초마다 줄어드는 시간 표시
+		if (sec > 1.0f) {
+			sec = 0;
+			g_timer.setStr(std::to_string((TIME_LIMIT - (int)elapsedTime)));
+		}
+		// TIME_LIMIT 초만큼 시간 경과 시, 다음 턴으로 넘어감
+		if (elapsedTime > (float)TIME_LIMIT) {
+			elapsedTime = 0;
+			game.nextTurn();
+		}
+		
 		// draw plane, walls, and spheres
 		g_legoPlane.draw(Device, g_mWorld);
 		for (i = 0; i < 4; i++) {
@@ -952,7 +981,8 @@ LRESULT CALLBACK d3d::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			double distance = sqrt(pow(targetpos.x - whitepos.x, 2) + pow(targetpos.z - whitepos.z, 2));
 			game.getPlayer(player).getBall(turn - 1).setPower(distance * cos(theta), distance * sin(theta));
 			game.getPlayer(player).getBall(turn - 1).setIsPlaying(true); // player가 공을 굴렸으면 게임에 참여중인 공이 된다.
-
+			sec = 0;
+			elapsedTime = 0;
 			game.nextTurn();
 
 		HERE:
@@ -968,6 +998,8 @@ LRESULT CALLBACK d3d::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		int new_y = HIWORD(lParam);
 		float dx;
 		float dy;
+		float tx;
+		float tz;
 
 		isReset = true;
 
@@ -976,7 +1008,13 @@ LRESULT CALLBACK d3d::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			dy = (old_y - new_y);// * 0.01f;
 
 			D3DXVECTOR3 coord3d = g_target_blueball.getCenter();
-			g_target_blueball.setCenter(coord3d.x + dx * (-0.007f), coord3d.y, coord3d.z + dy * 0.007f);
+			tx = coord3d.x + dx * (-0.007f);
+			tz = coord3d.z + dy * 0.007f;
+			if (tx >= 3 - M_RADIUS) tx = 3 - M_RADIUS;
+			else if (tx <= -3 + M_RADIUS) tx = -3 + M_RADIUS;
+			if (tz >= 4.5 - M_RADIUS) tz = 4.5 - M_RADIUS;
+			else if (tz <= -4.5 + M_RADIUS) tz = -4.5 + M_RADIUS;
+			g_target_blueball.setCenter(tx, coord3d.y, tz);
 		}
 		old_x = new_x;
 		old_y = new_y;

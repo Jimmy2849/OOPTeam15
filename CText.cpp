@@ -12,7 +12,7 @@ bool CText::create(IDirect3DDevice9* pDevice, int screenWidth, int screenHeight,
 	rct.top = 0;
 	rct.bottom = screenHeight;
 	fontColor = D3DCOLOR_ARGB(255, 255, 255, 255);
-	if (FAILED(D3DXCreateFont(pDevice, 25, 12, 500, 0, false, DEFAULT_CHARSET, OUT_TT_ONLY_PRECIS, 0, 0, "Times New Roman", &ppFont))) {
+	if (FAILED(D3DXCreateFont(pDevice, 25, 12, 500, 0, false, DEFAULT_CHARSET, OUT_TT_ONLY_PRECIS, 0, 0, "Comic Sans MS", &ppFont))) {
 		return false;
 	}
 	anchor = DT_LEFT | DT_TOP;
