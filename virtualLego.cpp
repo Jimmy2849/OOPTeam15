@@ -15,7 +15,6 @@
 // 또한 모든 턴이 종료되었으면 game.nextSet()를 호출하여 다음 세트를 진행한다.
 // CSphere 에 bool isPlaying, void setIsPlaying() 추가. 이 공이 player 가 굴려서 게임에 참여된 공인지 판단. 
 // 먼저 1p 부터 시작하고 그다음 2p 가 공을 굴린다. Curling.whose_trun 이 현재 player를 나타내며, 굴릴때마다 값이 바뀐다.
-// CText 는 https://github.com/kyung2/cau_OOP02 에서 가져옴, p1와 p2의 점수 화면에 출력.
 // **게임에 참여중인 공이 출발지점에 있으면 간섭생김..
 // 다음 세트로 넘어갈때 점수가 Curling.total_score에 합산. 이를 상단에 출력 ( 텍스트 형식은 수정 가능 )
 // 모든 세트가 끝나면 승자 결과 출력. 다음 게임 구현 x
@@ -527,12 +526,14 @@ public :
 			for (i = 0; i < 4; i++) {
 				this->ball[i].setCenter(spherePos[i][0], (float)M_RADIUS, spherePos[i][1]);
 				this->ball[i].setPower(0, 0);
+				this->ball[i].setIsPlaying(false);
 			}
 		}
 		else if (playerNum == 2) {
 			for (i = 0; i < 4; i++) {
 				this->ball[i].setCenter(spherePos2[i][0], (float)M_RADIUS, spherePos2[i][1]);
 				this->ball[i].setPower(0, 0);
+				this->ball[i].setIsPlaying(false);
 			}
 		}
 	}
@@ -952,34 +953,7 @@ LRESULT CALLBACK d3d::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             int new_y = HIWORD(lParam);
 			float dx;
 			float dy;
-			
-            if (LOWORD(wParam) & MK_LBUTTON) {
-				
-                if (isReset) {
-                    isReset = false;
-                } else {
-                    D3DXVECTOR3 vDist;
-                    D3DXVECTOR3 vTrans;
-                    D3DXMATRIX mTrans;
-                    D3DXMATRIX mX;
-                    D3DXMATRIX mY;
-					
-                    switch (move) {
-                    case WORLD_MOVE:
-                        dx = (old_x - new_x) * 0.01f;
-                        dy = (old_y - new_y) * 0.01f;
-                        D3DXMatrixRotationY(&mX, dx);
-                        D3DXMatrixRotationX(&mY, dy);
-                        g_mWorld = g_mWorld * mX * mY;
-						
-                        break;
-                    }
-                }
-				
-                old_x = new_x;
-                old_y = new_y;
 
-            } else {
                 isReset = true;
 				
 				if (LOWORD(wParam) & MK_RBUTTON) {
@@ -993,7 +967,7 @@ LRESULT CALLBACK d3d::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				old_y = new_y;
 				
                 move = WORLD_MOVE;
-            }
+            
             break;
         }
 	}
