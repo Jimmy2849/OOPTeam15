@@ -1,1 +1,23 @@
-﻿C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Microsoft\VC\v170\Microsoft.CppBuild.targets(442,5): error MSB8020: Visual Studio 2013에 대한 빌드 도구(플랫폼 도구 집합 = 'v120')를 찾을 수 없습니다. v120 빌드 도구를 사용하여 빌드하려면 Visual Studio 2013 빌드 도구를 설치하십시오.  [프로젝트] 메뉴를 선택하거나 솔루션을 마우스 오른쪽 단추로 클릭한 다음 "솔루션 대상 변경"을 선택하여 현재 Visual Studio 도구로 업그레이드할 수도 있습니다.
+﻿cl : 명령줄  warning D9035: 'Gm' 옵션은 더 이상 사용되지 않으므로 이후 릴리스에서 제거될 예정입니다.
+  virtualLego.cpp
+C:\Users\jee98\source\repos\oop16_proj3\d3dUtility.h(23,1): warning C4005: 'INFINITY': 매크로 재정의
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.19041.0\ucrt\corecrt_math.h(88,1): message : 'INFINITY'의 이전 정의를 참조하십시오.
+C:\Users\jee98\source\repos\oop16_proj3\virtualLego.cpp(126,18): warning C4244: '=': 'double'에서 'float'(으)로 변환하면서 데이터가 손실될 수 있습니다.
+C:\Users\jee98\source\repos\oop16_proj3\virtualLego.cpp(217,1): warning C4305: '초기화 중': 'double'에서 'float'(으)로 잘립니다.
+C:\Users\jee98\source\repos\oop16_proj3\virtualLego.cpp(245,24): warning C4244: '=': 'double'에서 'float'(으)로 변환하면서 데이터가 손실될 수 있습니다.
+C:\Users\jee98\source\repos\oop16_proj3\virtualLego.cpp(246,24): warning C4244: '=': 'double'에서 'float'(으)로 변환하면서 데이터가 손실될 수 있습니다.
+C:\Users\jee98\source\repos\oop16_proj3\virtualLego.cpp(362,1): warning C4305: '인수': 'double'에서 'float'(으)로 잘립니다.
+C:\Users\jee98\source\repos\oop16_proj3\virtualLego.cpp(369,1): warning C4305: '인수': 'double'에서 'float'(으)로 잘립니다.
+C:\Users\jee98\source\repos\oop16_proj3\virtualLego.cpp(376,1): warning C4305: '인수': 'double'에서 'float'(으)로 잘립니다.
+C:\Users\jee98\source\repos\oop16_proj3\virtualLego.cpp(383,1): warning C4305: '인수': 'double'에서 'float'(으)로 잘립니다.
+C:\Users\jee98\source\repos\oop16_proj3\virtualLego.cpp(401,30): warning C4305: 'return': 'double'에서 'float'(으)로 잘립니다.
+C:\Users\jee98\source\repos\oop16_proj3\virtualLego.cpp(725,6): warning C4101: 'i' :참조되지 않은 지역 변수입니다.
+C:\Users\jee98\source\repos\oop16_proj3\virtualLego.cpp(975,16): warning C4244: '=': 'int'에서 'float'(으)로 변환하면서 데이터가 손실될 수 있습니다.
+C:\Users\jee98\source\repos\oop16_proj3\virtualLego.cpp(976,16): warning C4244: '=': 'int'에서 'float'(으)로 변환하면서 데이터가 손실될 수 있습니다.
+C:\Users\jee98\source\repos\oop16_proj3\virtualLego.cpp(945,16): warning C4533: 'whitepos'의 초기화를 'goto HERE'에서 건너뜁니다.
+C:\Users\jee98\source\repos\oop16_proj3\virtualLego.cpp(945,16): message : 'whitepos' 선언을 참조하십시오.
+C:\Users\jee98\source\repos\oop16_proj3\virtualLego.cpp(958,3): message : 'HERE' 선언을 참조하십시오.
+C:\Users\jee98\source\repos\oop16_proj3\virtualLego.cpp(944,16): warning C4533: 'targetpos'의 초기화를 'goto HERE'에서 건너뜁니다.
+C:\Users\jee98\source\repos\oop16_proj3\virtualLego.cpp(944,16): message : 'targetpos' 선언을 참조하십시오.
+C:\Users\jee98\source\repos\oop16_proj3\virtualLego.cpp(958,3): message : 'HERE' 선언을 참조하십시오.
+  VirtualLego.vcxproj -> C:\Users\jee98\source\repos\oop16_proj3\Debug\VirtualLego.exe
