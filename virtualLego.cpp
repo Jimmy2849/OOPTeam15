@@ -920,7 +920,7 @@ LRESULT CALLBACK d3d::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				int turn = game.getNowTurn();
 				int player = game.getWhoseTurn();
 				// 공이 멈출 때까지 기다림
-				if (turn > 1) {
+				if (turn > 0) {
 					for (i = 0; i < 4; i++) {
 						if (!game.isAllStop()) goto HERE;
 					}
