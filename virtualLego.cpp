@@ -9,6 +9,17 @@
 // Modified later to program for Virtual Billiard.
 //        
 ////////////////////////////////////////////////////////////////////////////////
+// curling , player 객체 추가
+// setup에서 공 생성부분은 Curling 객체 생성시 수행, Curing객체 game을 전역으로 선언, display에서도 이와 맞게 교체, VK_SPACE 부분 g_sphere[i] 를 game.getPlayer().getball(i)로 교체.
+// display 함수에서 game 의 now_turn 을 확인하여 턴이 종료되었으면( 스페이스바를 눌러 now_turn++ 이 되고 공이 모두 멈추었으면) 그에 맞게 세팅한다.
+// 또한 모든 턴이 종료되었으면 game.nextSet()를 호출하여 다음 세트를 진행한다.
+// CSphere 에 bool isPlaying, void setIsPlaying() 추가. 이 공이 player 가 굴려서 게임에 참여된 공인지 판단. 
+// 먼저 1p 부터 시작하고 그다음 2p 가 공을 굴린다. Curling.whose_trun 이 현재 player를 나타내며, 굴릴때마다 값이 바뀐다.
+// **게임에 참여중인 공이 출발지점에 있으면 간섭생김..
+// 다음 세트로 넘어갈때 점수가 Curling.total_score에 합산. 이를 상단에 출력 ( 텍스트 형식은 수정 가능 )
+// 모든 세트가 끝나면 승자 결과 출력. 다음 게임 구현 x
+// 진짜 컬링처럼 점수 계산 - 기존 방식이 좋을지?
+// 세트마다 선 플레이어 교체 - 짝수 세트 시 2플레이어 부터
 
 #include "d3dUtility.h"
 #include <vector>
@@ -16,6 +27,9 @@
 #include <cstdlib>
 #include <cstdio>
 #include <cassert>
+#include <string>
+#include "CText.h"
+#include <algorithm> // Culring class에서 점수 계산시 sort 사용
 
 IDirect3DDevice9* Device = NULL;
 
@@ -25,7 +39,8 @@ const int Height = 768;
 
 // There are four balls
 // initialize the position (coordinate) of each ball (ball0 ~ ball3)
-const float spherePos[4][2] = { {-2.7f,0} , {+2.4f,0} , {3.3f,0} , {-2.7f,-0.9f}}; 
+const float spherePos[4][2] = { {-2.8f,-4.2f} , {-2.3f,-4.2f} , {-1.8f, -4.2f} , {-1.3f,-4.2f} }; // 초기 빨간공 위치
+const float spherePos2[4][2] = { {+2.8f,-4.2f} , {+2.3f,-4.2f} , {+1.8f, -4.2f} , {+1.3f,-4.2f} }; // 초기 노란공 위치
 // initialize the color of each ball (ball0 ~ ball3)
 const D3DXCOLOR sphereColor[4] = {d3d::RED, d3d::RED, d3d::YELLOW, d3d::WHITE};
 
@@ -36,10 +51,13 @@ D3DXMATRIX g_mWorld;
 D3DXMATRIX g_mView;
 D3DXMATRIX g_mProj;
 
+
 #define M_RADIUS 0.21   // ball radius
 #define PI 3.14159265
 #define M_HEIGHT 0.01
 #define DECREASE_RATE 0.9982
+
+D3DXVECTOR3 scoreTarget = { 0.0f, (float)M_RADIUS, 0.0f }; // 점수 기준이 되는 기준점 (화면상 하얀 점 보이는 중앙)
 
 // -----------------------------------------------------------------------------
 // CSphere class definition
@@ -48,9 +66,12 @@ D3DXMATRIX g_mProj;
 class CSphere {
 private :
 	float					center_x, center_y, center_z;
+	float					pre_center_x, pre_center_z; // 충돌 전 공 좌표
     float                   m_radius;
 	float					m_velocity_x;
 	float					m_velocity_z;
+	bool					isPlaying;
+	float					distance;
 
 public:
     CSphere(void)
@@ -60,6 +81,8 @@ public:
         m_radius = 0;
 		m_velocity_x = 0;
 		m_velocity_z = 0;
+		isPlaying = false;
+		distance = 99;
         m_pSphereMesh = NULL;
     }
     ~CSphere(void) {}
@@ -98,16 +121,30 @@ public:
         pDevice->SetMaterial(&m_mtrl);
 		m_pSphereMesh->DrawSubset(0);
     }
-	
+
+	void setDistance(void) {
+		distance = sqrt(pow((scoreTarget.x - this->center_x), 2) + pow((scoreTarget.z - this->center_z), 2));
+	}
+
+	bool isStop(void) // 공 멈춤 판정
+	{
+		if (this->m_velocity_x == 0 && this->m_velocity_z == 0) {
+			return true;
+		}
+		else {
+			return false;
+		}
+	}
 	bool hasIntersected(CSphere& ball) // 공 충돌 판정
 	{
 		D3DXVECTOR3 b1 = this->getCenter();
 		D3DXVECTOR3 b2 = ball.getCenter();
 
-		double distance = sqrt(pow((b1.x - b2.x), 2) + pow((b1.y - b2.y), 2) + pow((b1.z - b2.z), 2)); // d = 공의 중심 좌표를 통해 구한 두 공 사이의 거리
-		double rSum = this->getRadius() + ball.getRadius(); // r = 두 공의 반지름의 합
+		double distance = sqrt(pow((b1.x - b2.x), 2) + pow((b1.y - b2.y), 2) + pow((b1.z - b2.z), 2)); // 공의 중심 좌표를 통해 구한 두 공 사이의 거리
+		double rSum = this->getRadius() + ball.getRadius(); // 두 공의 반지름의 합
 
-		if (distance <= rSum) { // distance <= rSum 이면 두 공은 충돌한 것이다
+		// 두 공 사이의 거리가 두 공의 반지름의 합보다 작거나 같으면 두 공은 충돌한 것 && 두 공의 isPlaying이 모두 true여야 충돌 조건을 만족
+		if (distance <= rSum && this->isPlaying && ball.isPlaying) {
 			return true;
 		}
 		else {
@@ -115,56 +152,62 @@ public:
 		}
 
 	}
-	
+
+	void fixPosition(CSphere& ball) // 공 겹치지 않도록 충돌 시점 좌표로 이동시키는 함수
+	{
+		D3DXVECTOR3 temp = ball.getCenter();
+
+		// 공 충돌 시, 충돌 시점의 좌표로 근사하게 이동
+		this->setCenter((this->center_x + this->pre_center_x) / 2, this->center_y, (this->center_z + this->pre_center_z) / 2);
+		ball.setCenter((temp.x + ball.pre_center_x) / 2, temp.y, (temp.z + ball.pre_center_z) / 2);
+
+		this->setCenter(this->pre_center_x, this->center_y, this->pre_center_z);
+		ball.setCenter(ball.pre_center_x, temp.y, ball.pre_center_z);
+
+	}
+
 	void hitBy(CSphere& ball) // 공 충돌 처리
 	{ 
-		// declare variable, for performance I set them as static
-		static D3DXVECTOR3 direction;
-		static D3DXVECTOR3 warpVector;
-		static D3DXVECTOR3 totalVelocity;
-		static D3DXVECTOR3 normalizedDirection;
-		static D3DXVECTOR3 ballVelocity;
-		static D3DXVECTOR3 thisVelocity;
-		static const float fix = 1.1f; // for correction of should-be-warp(겹쳐지지 않게 옮겨져야 되는) distance //should be larger then one //1보다 커야함
-		static float distance;
-		static float overlapInterval;
+		/* 물리 식 참고 : http://egloos.zum.com/hhugs/v/3506086 */
 
-		// when collided, do physics
 		if (hasIntersected(ball)) {
-			// set direction
-			direction = this->getCenter() - ball.getCenter();
-			// compute distance // 2 차원이라고 가정
-			distance = sqrt(direction.x * direction.x + direction.z * direction.z);
-			// overlap distance
-			overlapInterval = 2 * ball.getRadius() - distance;
-			// how much should I warp so that circles(colliders) won't overlapped anymore
-			warpVector = fix * direction * (overlapInterval / (2 * ball.getRadius() - overlapInterval));
 
-			// implementation of collision // 탄성 충돌 구현 
-			if (((ball.m_velocity_x * ball.m_velocity_x) + (ball.m_velocity_z * ball.m_velocity_z)) >= ((this->m_velocity_x * this->m_velocity_x) + (this->m_velocity_z * this->m_velocity_z))) {
-				// hitter의 속도가 큰 경우 반대로 호출 // 왜냐면 아래의 물리식은 hitee의 기준으로 만들었기 때문
-				ball.hitBy(*this);
-				return;
-			}
-			else {
-				// hitter의 속도가 작은 경우
-				// 충돌할 때, 워프시켜서 한번만 아래의 물리연산이 실행되도록 하기 
-				// this에 +warpVector 적용
-				this->setCenter(this->getCenter().x + warpVector.x, this->getCenter().y, this->getCenter().z + warpVector.z);
-			}
+			fixPosition(ball); // 공 겹치지 않도록 위치 조정
 
-			// Add all velocity of colliding Balls
-			totalVelocity = D3DXVECTOR3(getVelocity_X() + ball.getVelocity_X(), 0, getVelocity_Z() + ball.getVelocity_Z());
-			// normalize direction vector
-			normalizedDirection = (-1) * direction / distance;
+			double x = this->center_x - ball.center_x; // 두 공 사이의 x좌표 거리
+			double z = this->center_z - ball.center_z; // 두 공 사이의 z좌표 거리
+			double distance = sqrt((x * x) + (z * z)); // 두 공 사이의 직선 거리
 
-			// compute final velocity of each colliders
-			ballVelocity = normalizedDirection * (normalizedDirection.x * totalVelocity.x + normalizedDirection.z * totalVelocity.z);
-			thisVelocity = -ballVelocity + totalVelocity;
+			// this의 충돌 전 속도
+			double vax = this->m_velocity_x;
+			double vaz = this->m_velocity_z;
 
-			// set Power // 탄성 충돌 물리식 결과 적용
-			this->setPower(thisVelocity.x, thisVelocity.z);
-			ball.setPower(ballVelocity.x, ballVelocity.z);
+			// ball의 충돌 전 속도
+			double vbx = ball.m_velocity_x;
+			double vbz = ball.m_velocity_z;
+
+			// θ = 수평 방향과 두 공의 중심을 이은 직선이 이루는 각
+			double cos_t = x / distance; // cos θ
+			double sin_t = z / distance; // sin θ
+
+			// 충돌 후 두 공의 x'방향 속도
+			double vaxp = vbx * cos_t + vbz * sin_t;
+			double vbxp = vax * cos_t + vaz * sin_t;
+
+			// 충돌 후 두 공의 z'방향 속도
+			double vazp = vaz * cos_t - vax * sin_t;
+			double vbzp = vbz * cos_t - vbx * sin_t;
+
+			// 충돌 후 this의 속도
+			double vaxp2 = vaxp * cos_t - vazp * sin_t;
+			double vazp2 = vaxp * sin_t + vazp * cos_t;
+
+			// 충돌 후 ball의 속도
+			double vbxp2 = vbxp * cos_t - vbzp * sin_t;
+			double vbzp2 = vbxp * sin_t + vbzp * cos_t;
+
+			this->setPower(vaxp2, vazp2);
+			ball.setPower(vbxp2, vbzp2);
 
 		}
 	}
@@ -176,21 +219,13 @@ public:
 		double vx = abs(this->getVelocity_X());
 		double vz = abs(this->getVelocity_Z());
 
+		this->pre_center_x = cord.x;
+		this->pre_center_z = cord.z;
+
 		if(vx > 0.01 || vz > 0.01)
 		{
 			float tX = cord.x + TIME_SCALE*timeDiff*m_velocity_x;
 			float tZ = cord.z + TIME_SCALE*timeDiff*m_velocity_z;
-
-			//correction of position of ball
-			// Please uncomment this part because this correction of ball position is necessary when a ball collides with a wall
-			/*if(tX >= (4.5 - M_RADIUS))
-				tX = 4.5 - M_RADIUS;
-			else if(tX <=(-4.5 + M_RADIUS))
-				tX = -4.5 + M_RADIUS;
-			else if(tZ <= (-3 + M_RADIUS))
-				tZ = -3 + M_RADIUS;
-			else if(tZ >= (3 - M_RADIUS))
-				tZ = 3 - M_RADIUS;*/
 			
 			this->setCenter(tX, cord.y, tZ);
 		}
@@ -227,7 +262,11 @@ public:
         D3DXVECTOR3 org(center_x, center_y, center_z);
         return org;
     }
-	
+	float getDistance() { return distance; }
+	void setIsPlaying(bool b) {
+		isPlaying = b;
+	}
+
 private:
     D3DXMATRIX              m_mLocal;
     D3DMATERIAL9            m_mtrl;
@@ -299,18 +338,11 @@ public:
 	
 	bool hasIntersected(CSphere& ball) 
 	{
-		float ballpos_x = ball.getCenter().x;
-		float ballpos_z = ball.getCenter().z;
+		float ball_x = ball.getCenter().x;
+		float ball_z = ball.getCenter().z;
 
-		// for better collision detection // 벽을 좀 작게해서 보정
-		float correction = 0.08f;
-
-		// compare position with wall and ball position
-		if ((ballpos_x >= ((4.5 - correction) - M_RADIUS))
-			|| (ballpos_x <= ((-1) * (4.5 - correction) + M_RADIUS))
-			|| (ballpos_z <= ((-1) * (3.0 - correction) + M_RADIUS))
-			|| (ballpos_z >= (3.0 - correction - M_RADIUS)))
-		{
+		// 공의 x or z좌표가 벽의 좌표와 같거나 넘어설 경우 충돌 판정 
+		if ((ball_x >= (3.0 - M_RADIUS)) || (ball_x <= (-3.0 + M_RADIUS)) || (ball_z <= (-4.5 + M_RADIUS)) || (ball_z >= (4.5 - M_RADIUS))) {
 			return true;
 		}
 		else {
@@ -320,43 +352,37 @@ public:
 
 	void hitBy(CSphere& ball) 
 	{
-		// when collided, do physics
 		if (hasIntersected(ball)) {
-			static const float energyComsumption = 0.2f;
-			// Collide with Upper Wall // 상위의 벽과 충돌
-			if (ball.getCenter().z >= (3.0 - M_RADIUS)) {
-				ball.setCenter(ball.getCenter().x, ball.getCenter().y, 3 - M_RADIUS);
-				ball.setPower(ball.getVelocity_X(), (-1) * ball.getVelocity_Z());
 
-				// decrease velocity of ball after collision of wall
-				ball.setPower(ball.getVelocity_X() * (1.0f - energyComsumption), ball.getVelocity_Z() * (1.0f - energyComsumption));
+			// 왼쪽 벽과 충돌했을 경우
+			if (ball.getCenter().x <= (-3.0 + M_RADIUS)) {
+				ball.setCenter(-3.0 + M_RADIUS, ball.getCenter().y, ball.getCenter().z); // 공 좌표 다시 설정
+				ball.setPower((-1) * ball.getVelocity_X(), ball.getVelocity_Z()); // x방향 속도를 반대 방향으로 바꿈
+				ball.setPower(ball.getVelocity_X() * 0.8f, ball.getVelocity_Z() * 0.8f); // 벽 부딪힌 후 감속 처리
 			}
-			// Collide with Lower Wall // 하위의 벽과 충돌
-			if (ball.getCenter().z <= (-(3.0) + M_RADIUS)) {
-				ball.setCenter(ball.getCenter().x, ball.getCenter().y, -3 + M_RADIUS);
-				ball.setPower(ball.getVelocity_X(), (-1) * ball.getVelocity_Z());
 
-				// decrease velocity of ball after collision of wall
-				ball.setPower(ball.getVelocity_X() * (1.0f - energyComsumption), ball.getVelocity_Z() * (1.0f - energyComsumption));
+			// 오른쪽 벽과 충돌했을 경우
+			if (ball.getCenter().x >= (3.0 - M_RADIUS)) {
+				ball.setCenter(3.0 - M_RADIUS, ball.getCenter().y, ball.getCenter().z); // 공 좌표 다시 설정
+				ball.setPower((-1) * ball.getVelocity_X(), ball.getVelocity_Z()); // x방향 속도를 반대 방향으로 바꿈
+				ball.setPower(ball.getVelocity_X() * 0.8f, ball.getVelocity_Z() * 0.8f); // 벽 부딪힌 후 감속 처리
 			}
-			// Collide with Left Wall // 좌측의 벽과 충돌
-			if (ball.getCenter().x <= (-(4.5) + M_RADIUS))
-			{
-				ball.setCenter(-4.5 + M_RADIUS, ball.getCenter().y, ball.getCenter().z);
-				ball.setPower((-1) * ball.getVelocity_X(), ball.getVelocity_Z());
 
-				// decrease velocity of ball after collision of wall
-				ball.setPower(ball.getVelocity_X() * (1.0f - energyComsumption), ball.getVelocity_Z() * (1.0f - energyComsumption));
+			// 위쪽 벽과 충돌했을 경우
+			if (ball.getCenter().z >= (4.5 - M_RADIUS)) {
+				ball.setCenter(ball.getCenter().x, ball.getCenter().y, 4.5 - M_RADIUS); // 공 좌표 다시 설정
+				ball.setPower(ball.getVelocity_X(), (-1) * ball.getVelocity_Z()); // z방향 속도를 반대 방향으로 바꿈
+				ball.setPower(ball.getVelocity_X() * 0.8f, ball.getVelocity_Z() * 0.8f); // 벽 부딪힌 후 감속 처리
 			}
-			// Collide with Right Wall // 우측의 벽과 충돌
-			if (ball.getCenter().x >= (4.5 - M_RADIUS)) {
-				ball.setCenter(4.5 - M_RADIUS, ball.getCenter().y, ball.getCenter().z);
-				ball.setPower((-1) * ball.getVelocity_X(), ball.getVelocity_Z());
 
-				// decrease velocity of ball after collision of wall
-				ball.setPower(ball.getVelocity_X() * (1.0f - energyComsumption), ball.getVelocity_Z() * (1.0f - energyComsumption));
+			// 아래쪽 벽과 충돌했을 경우
+			if (ball.getCenter().z <= (-4.5 + M_RADIUS)) {
+				ball.setCenter(ball.getCenter().x, ball.getCenter().y, -4.5 + M_RADIUS); // 공 좌표 다시 설정
+				ball.setPower(ball.getVelocity_X(), (-1) * ball.getVelocity_Z()); // z방향 속도를 반대 방향으로 바꿈
+				ball.setPower(ball.getVelocity_X() * 0.8f, ball.getVelocity_Z() * 0.8f); // 벽 부딪힌 후 감속 처리
 			}
 		}
+
 	}    
 	
 	void setPosition(float x, float y, float z)
@@ -468,6 +494,187 @@ private:
 };
 
 
+class Player {
+private :
+	CSphere ball[4]; // 한 플레이어가 가진 공
+	int playerNum;
+	int score;
+public :
+	Player() {
+		playerNum = 1;
+		score = 0;
+	}
+	Player(int n) {
+		playerNum = n;
+		score = 0;
+	}
+
+	bool createBalls() {
+		int i = 0;
+		D3DCOLOR color;
+		if (playerNum == 1) color = d3d::RED;
+		else if (playerNum == 2) color = d3d::YELLOW;
+		for (i = 0; i < 4; i++) {
+			if (false == ball[i].create(Device, color)) return false;
+		}
+		setBalls();
+		return true;
+	}
+	void setBalls() {
+		int i = 0;
+		if (playerNum == 1) {
+			for (i = 0; i < 4; i++) {
+				this->ball[i].setCenter(spherePos[i][0], (float)M_RADIUS, spherePos[i][1]);
+				this->ball[i].setPower(0, 0);
+				this->ball[i].setIsPlaying(false);
+			}
+		}
+		else if (playerNum == 2) {
+			for (i = 0; i < 4; i++) {
+				this->ball[i].setCenter(spherePos2[i][0], (float)M_RADIUS, spherePos2[i][1]);
+				this->ball[i].setPower(0, 0);
+				this->ball[i].setIsPlaying(false);
+			}
+		}
+	}
+	bool isAllStop() {
+		int i = 0;
+		for (i = 0; i < 4; i++) {
+			if (!ball[i].isStop()) return false;
+		}
+		return true;
+	}
+	CSphere& getBall(int i) {
+		return this->ball[i]; }
+
+	void setScore(int i) {
+		score = i;
+	}
+	int getScore() { 
+		return score; }
+	// distroy 추가?
+};
+
+
+class Curling {
+private:
+	Player p[2];
+	int max_turn; // 최대 턴 수 ( player의 공의 개수랑 같아야 함)
+	int max_set; // 최대 세트 수
+	int now_set; // 지금 몇번째 세트인가
+	int now_turn; // 지금 몇번째 턴인가
+	int total_score[2]; // 총점
+	int whose_turn; // 지금 어느 player의 턴인가 0 이면 1p 1이면 2p
+
+public:
+	Curling() {
+		max_turn = 4;
+		max_set = 2;
+		now_set = 1;
+		now_turn = 1;
+		total_score[0] = 0;
+		total_score[1] = 0;
+		whose_turn = 0;
+		p[0] = Player(1);
+		p[1] = Player(2);
+	}
+
+	void scoreCheck() { // 세트가 끝나면 세트점수를 총 점수에 합산한다.
+		total_score[0] += p[0].getScore();
+		total_score[1] += p[1].getScore();
+	}
+
+	std::string getWinnerStr() { //  총점을 비교해 승자 string을 반환한다. 이는 display에서 CText winner를 통해 출력했다.
+		std::string str;
+		if (total_score[0] > total_score[1])
+			str = "Player 1 Win!!";
+		else if (total_score[0] < total_score[1])
+			str = "Player 2 Win!!";
+		else 
+			str = "Draw!!";
+
+		return str;
+		
+	}
+	void nextSet() { // 모든 턴이 종료되면 호출되어 다음 세트를 진행하는 함수. 
+		scoreCheck(); // 점수체크
+		Sleep(2000); // 세트 결과 2초동안 유지(유저가 결과를 확인하는 시간)
+		p[0].setBalls(); // 공 위치 초기화
+		p[1].setBalls();
+		now_turn = 1; // 다시 첫번째 턴으로
+		now_set++; // 현재 세트는 1 증가
+		whose_turn = now_set % 2 == 1 ? 0 : 1; // 홀수 세트이면 1p부터, 아니면 2p부터 시작.
+	}
+
+	bool isAllStop() { // 1p와 2p의 모든 공이 멈추었으면 true
+		if (p[0].isAllStop() && p[1].isAllStop()) return true;
+		else return false;
+	}
+	void setScoreC() { // 컬링처럼 점수를 측정하는 함수. 
+		float p1[4] = {99,99,99,99 };
+		float p2[4] = {99,99,99,99 };
+		int score_p1 = 0;
+		int score_p2 = 0;
+
+		for (int i = 0; i < getMaxTurn() ; i++) {
+			getPlayer(0).getBall(i).setDistance();
+			getPlayer(1).getBall(i).setDistance();
+			p1[i] = getPlayer(0).getBall(i).getDistance();
+			p2[i] = getPlayer(1).getBall(i).getDistance();
+		}
+
+		std::sort(p1, p1 + 4);
+		std::sort(p2, p2 + 4);
+
+		if (p1[0] < p2[0]) {
+			score_p1++;
+			for (int i = 1; i < getMaxTurn(); i++) {
+				if (p1[i] < p2[0]) {
+					score_p1++;
+				}
+				else break;
+			}
+		}
+		else if (p1[0] > p2[0]) {
+			score_p2++;
+			for (int i = 1; i < getMaxTurn(); i++) {
+				if (p2[i] < p1[0]) {
+					score_p2++;
+				}
+				else break;
+				}
+		}
+		getPlayer(0).setScore(score_p1);
+		getPlayer(1).setScore(score_p2);
+
+	}
+	void nextTurn() {
+		if (now_set % 2 == 1) {
+			if (whose_turn == 1) now_turn++; // 2p의 차례가 끝났다면 다음 턴으로 이동
+			changePlayer(); // 차례가 끝나면 플레이어 교체
+		}
+		else {
+			if (whose_turn == 0) now_turn++; // 2p의 차례가 끝났다면 다음 턴으로 이동
+			changePlayer(); // 차례가 끝나면 플레이어 교체
+		}
+	}
+
+	Player& getPlayer(int num) { return p[num]; }
+	int getMaxTurn() { return max_turn; }
+	int getMaxSet() { return max_set; }
+	int getNowTurn() { return now_turn; }
+	int getNowSet() { return now_set; }
+	int getWhoseTurn() { return whose_turn; }
+	int getScore(int i) { return total_score[i]; }
+	void setNowTurn(int i) { this->now_turn = i; }
+	void changePlayer() { // 현제 플레이어를 바꾼다
+		whose_turn = whose_turn == 0 ? 1 : 0;
+	}
+
+
+};
+
+
 // -----------------------------------------------------------------------------
 // Global variables
 // -----------------------------------------------------------------------------
@@ -476,6 +683,15 @@ CWall	g_legowall[4];
 CSphere	g_sphere[4];
 CSphere	g_target_blueball;
 CLight	g_light;
+CText   g_score; // 화면 상단 가운데 score 표시
+CText	g_set; // score 바로 아래에 세트 표시
+CText   g_player1; // 화면 상단 좌측에 P1의 현재 세트 점수표시
+CText   g_player2; // 화면 상단 우측에 P2의 현재 세트 점수표시
+CText	g_totalP1; // 화면 상단 좌측에 P1의 총점표시
+CText	g_totalP2; // 화면 상단 우측에 P2의 총점표시
+CText	g_winner; // 모든 세트 끝나면 승자 표시
+
+Curling game; // Curling 객체 전역으로 선언
 
 double g_camera_pos[3] = {0.0, 5.0, -8.0};
 
@@ -492,7 +708,28 @@ void destroyAllLegoBlock(void)
 bool Setup()
 {
 	int i;
+
+	//setup text
+	if (g_score.create(Device, Width, Height, "SCORE") == false) return false;
+	if (g_player1.create(Device, Width, Height, "Player1") == false) return false;
+	if (g_player2.create(Device, Width - 30, Height, "Player2") == false) return false;
+	if (g_set.create(Device, Width, Height, "SET") == false) return false;
+	if (g_totalP1.create(Device, Width, Height, "p1") == false) return false;
+	if (g_totalP2.create(Device, Width - 30, Height, "p2") == false) return false;
+	if (g_winner.create(Device, Width, Height, " ") == false) return false;
 	
+	g_player1.setPosition(0, 50);
+	g_player2.setPosition(0, 50);
+	g_set.setPosition(0, 50);
+	g_winner.setPosition(0, 100);
+	g_score.setAnchor(DT_TOP | DT_CENTER);
+	g_player1.setAnchor(DT_TOP | DT_LEFT);
+	g_player2.setAnchor(DT_TOP | DT_RIGHT);
+	g_set.setAnchor(DT_TOP | DT_CENTER);
+	g_totalP1.setAnchor(DT_TOP | DT_LEFT);
+	g_totalP2.setAnchor(DT_TOP | DT_RIGHT); 
+	g_winner.setAnchor(DT_TOP | DT_CENTER);
+
     D3DXMatrixIdentity(&g_mWorld);
     D3DXMatrixIdentity(&g_mView);
     D3DXMatrixIdentity(&g_mProj);
@@ -512,12 +749,10 @@ bool Setup()
 	if (false == g_legowall[3].create(Device, -1, -1, 0.12f, 0.3f, 9.24f, d3d::DARKRED)) return false;
 	g_legowall[3].setPosition(-3.06f, 0.12f, 0.0f);
 
-	// create four balls and set the position
-	for (i=0;i<4;i++) {
-		if (false == g_sphere[i].create(Device, sphereColor[i])) return false;
-		g_sphere[i].setCenter(spherePos[i][0], (float)M_RADIUS , spherePos[i][1]);
-		g_sphere[i].setPower(0,0);
-	}
+
+	if(false == game.getPlayer(0).createBalls()) return false; // Curling의 멤버 Player가 가지고 있는 공을 생성 (4개)
+	if(false == game.getPlayer(1).createBalls()) return false;
+
 	
 	// create blue ball for set direction
     if (false == g_target_blueball.create(Device, d3d::BLUE)) return false;
@@ -539,7 +774,7 @@ bool Setup()
         return false;
 	
 	// Position and aim the camera.
-	D3DXVECTOR3 pos(0.0f, 15.0f, -1.0f); // 시작 카메라 위치 
+	D3DXVECTOR3 pos(0.0f, 14.0f, -1.0f); // 시작 카메라 위치 
 	D3DXVECTOR3 target(0.0f, 0.0f, 0.0f); // 카메라 비추는 곳
 	D3DXVECTOR3 up(0.0f, 2.0f, 0.0f);
 	D3DXMatrixLookAtLH(&g_mView, &pos, &target, &up);
@@ -576,32 +811,71 @@ bool Display(float timeDelta)
 {
 	int i=0;
 	int j = 0;
-
+	int turn = game.getNowTurn(); // 지금 몇번째 턴인가
 
 	if( Device )
 	{
 		Device->Clear(0, 0, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0x00afafaf, 1.0f, 0);
 		Device->BeginScene();
 		
+		// 턴 관련 조정. 공이 모두 멈추었을때 다음 차례 세팅.
+		if (game.isAllStop()) {
+			if (turn > game.getMaxTurn()) { // 현재 턴이 max를 초과했다면 다음 세트를 수행한다.
+				turn = 1;
+				game.nextSet();
+				if (game.getNowSet() > game.getMaxSet()) { // 현재 세트가 max를 초과했다면 승부 결과를 출력한다.
+					g_winner.setStr(game.getWinnerStr());
+				}
+			}
+			game.getPlayer(game.getWhoseTurn()).getBall(turn - 1).setCenter(0, (float)M_RADIUS, -4); // 현 차례의 공을 출발선에 위치시킨다.
+		}
+
+
 		// update the position of each ball. during update, check whether each ball hit by walls.
-		for( i = 0; i < 4; i++) {
-			g_sphere[i].ballUpdate(timeDelta);
-			for(j = 0; j < 4; j++){ g_legowall[i].hitBy(g_sphere[j]); }
+		for (i = 0; i < 4; i++) {
+			game.getPlayer(0).getBall(i).ballUpdate(timeDelta);
+			game.getPlayer(1).getBall(i).ballUpdate(timeDelta);
+			for (j = 0; j < 4; j++) {
+				g_legowall[i].hitBy(game.getPlayer(0).getBall(j)); 
+				g_legowall[i].hitBy(game.getPlayer(1).getBall(j));
+			}
 		}
 
 		// check whether any two balls hit together and update the direction of balls
-		for(i = 0 ;i < 4; i++){
-			for(j = 0 ; j < 4; j++) {
-				if(i >= j) {continue;}
-				g_sphere[i].hitBy(g_sphere[j]);
+		for (i = 0; i < 4; i++) {
+			for (j = 0; j < 4; j++) {
+				if (i >= j) { continue; }
+				game.getPlayer(0).getBall(i).hitBy(game.getPlayer(0).getBall(j)); // P1 의 공끼리 체크
+				game.getPlayer(1).getBall(i).hitBy(game.getPlayer(1).getBall(j)); // P2 의 공끼리 체크
+			}
+			for (j = 0; j < 4; j++) {
+				game.getPlayer(0).getBall(i).hitBy(game.getPlayer(1).getBall(j)); // P1과 P2의 공끼리 체크
 			}
 		}
+
+		// 실시간 점수 측정
+		game.setScoreC();
+
+		// draw text
+		g_player1.setStr(" " + std::to_string(game.getPlayer(0).getScore()));
+		g_player2.setStr(" " + std::to_string(game.getPlayer(1).getScore()));
+		g_totalP1.setStr("Player1: " + std::to_string(game.getScore(0)));
+		g_totalP2.setStr("Player2: " + std::to_string(game.getScore(1)));
+		g_set.setStr("SET " + std::to_string(game.getNowSet()) + "/" + std::to_string(game.getMaxSet()));
+		g_score.draw(); 
+		g_player1.draw();
+		g_player2.draw();
+		g_totalP1.draw();
+		g_totalP2.draw();
+		g_set.draw();
+		g_winner.draw();
 
 		// draw plane, walls, and spheres
 		g_legoPlane.draw(Device, g_mWorld);
 		for (i=0;i<4;i++) 	{
 			g_legowall[i].draw(Device, g_mWorld);
-			g_sphere[i].draw(Device, g_mWorld);
+			game.getPlayer(0).getBall(i).draw(Device, g_mWorld);
+			game.getPlayer(1).getBall(i).draw(Device, g_mWorld);
 		}
 		g_target_blueball.draw(Device, g_mWorld);
         g_light.draw(Device);
@@ -642,16 +916,31 @@ LRESULT CALLBACK d3d::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 break;
             case VK_SPACE:
 				
+				int i;
+				int turn = game.getNowTurn();
+				int player = game.getWhoseTurn();
+				// 공이 멈출 때까지 기다림
+				if (turn > 0) {
+					for (i = 0; i < 4; i++) {
+						if (!game.isAllStop()) goto HERE;
+					}
+				}
+
 				D3DXVECTOR3 targetpos = g_target_blueball.getCenter();
-				D3DXVECTOR3	whitepos = g_sphere[3].getCenter();
+				D3DXVECTOR3	whitepos = game.getPlayer(player).getBall(turn - 1).getCenter();
+
 				double theta = acos(sqrt(pow(targetpos.x - whitepos.x, 2)) / sqrt(pow(targetpos.x - whitepos.x, 2) +
 					pow(targetpos.z - whitepos.z, 2)));		// 기본 1 사분면
 				if (targetpos.z - whitepos.z <= 0 && targetpos.x - whitepos.x >= 0) { theta = -theta; }	//4 사분면
 				if (targetpos.z - whitepos.z >= 0 && targetpos.x - whitepos.x <= 0) { theta = PI - theta; } //2 사분면
-				if (targetpos.z - whitepos.z <= 0 && targetpos.x - whitepos.x <= 0){ theta = PI + theta; } // 3 사분면
+				if (targetpos.z - whitepos.z <= 0 && targetpos.x - whitepos.x <= 0) { theta = PI + theta; } // 3 사분면
 				double distance = sqrt(pow(targetpos.x - whitepos.x, 2) + pow(targetpos.z - whitepos.z, 2));
-				g_sphere[3].setPower(distance * cos(theta), distance * sin(theta));
+				game.getPlayer(player).getBall(turn - 1).setPower(distance * cos(theta), distance * sin(theta));
+				game.getPlayer(player).getBall(turn - 1).setIsPlaying(true); // player가 공을 굴렸으면 게임에 참여중인 공이 된다.
 
+				game.nextTurn();
+
+			HERE:
 				break;
 
 			}
@@ -664,34 +953,7 @@ LRESULT CALLBACK d3d::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             int new_y = HIWORD(lParam);
 			float dx;
 			float dy;
-			
-            if (LOWORD(wParam) & MK_LBUTTON) {
-				
-                if (isReset) {
-                    isReset = false;
-                } else {
-                    D3DXVECTOR3 vDist;
-                    D3DXVECTOR3 vTrans;
-                    D3DXMATRIX mTrans;
-                    D3DXMATRIX mX;
-                    D3DXMATRIX mY;
-					
-                    switch (move) {
-                    case WORLD_MOVE:
-                        dx = (old_x - new_x) * 0.01f;
-                        dy = (old_y - new_y) * 0.01f;
-                        D3DXMatrixRotationY(&mX, dx);
-                        D3DXMatrixRotationX(&mY, dy);
-                        g_mWorld = g_mWorld * mX * mY;
-						
-                        break;
-                    }
-                }
-				
-                old_x = new_x;
-                old_y = new_y;
 
-            } else {
                 isReset = true;
 				
 				if (LOWORD(wParam) & MK_RBUTTON) {
@@ -705,7 +967,7 @@ LRESULT CALLBACK d3d::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				old_y = new_y;
 				
                 move = WORLD_MOVE;
-            }
+            
             break;
         }
 	}
